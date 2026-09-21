@@ -3,6 +3,8 @@ Arduino project to detect kitty and flow fresh water into a basin
 
 Dedicated to Mkit for all her love and support
 
+![Mkit the cat](mkit.jpg)
+
 ## Development
 
 The default target is an Arduino Uno (ATmega328P), using the Arduino framework
