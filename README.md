@@ -1,9 +1,55 @@
 # freshwater_kitty
-Arduino project to detect kitty and flow fresh water into a basin
+An Arduino-controlled fresh-water dispenser that detects a cat with a radar
+sensor and opens a solenoid valve to flow water into a basin.
 
 Dedicated to Mkit for all her love and support
 
 ![Mkit the cat](mkit.jpg)
+
+## How it works
+
+The firmware in [`src/main.cpp`](src/main.cpp) reads the radar sensor's digital
+presence output and controls the valve and built-in LED together:
+
+- At startup, the valve and LED are off.
+- When the radar output goes HIGH, the valve opens and the LED turns on immediately.
+- The valve stays on while the radar reports presence, with a minimum on-time of
+  five seconds. Once more than five seconds have elapsed since activation, a LOW
+  radar reading closes the valve and turns off the LED.
+
+The timing uses `millis()` without blocking the main loop. The five-second interval
+is measured from valve activation, not from the last detection or the start of a
+LOW reading. Continuous presence keeps the valve open; there is no maximum run timer.
+
+Serial output at **57600 baud** reports `Freshwater Kitty ready` at startup,
+`Kitty detected!` when the valve opens, and `Kitty gone!` when it closes.
+
+## Hardware
+
+The [electrical schematic](docs_design/electrical.pdf) documents an Arduino Uno,
+LD2410C radar sensor module, solenoid valve, MT3608 boost converter set to 12 V,
+and an IRLZ44N MOSFET valve driver. The driver includes a 100 Ω gate resistor,
+10 kΩ gate pulldown, and 1N4001 flyback diode; the supply includes a 470 µF capacitor.
+
+| Connection | Arduino pin | Behavior |
+| --- | --- | --- |
+| Radar sensor OUT | D2 (input) | HIGH indicates presence |
+| Valve driver gate, through 100 Ω resistor | D7 (output) | HIGH energizes the valve |
+| Built-in LED | `LED_BUILTIN` | Mirrors the valve output |
+
+The schematic uses a shared 5 V supply for the Arduino, radar sensor, and boost
+converter input, with a common ground. The valve is powered by the 12 V boost
+output and switched through the MOSFET driver.
+
+The [physical design notes](docs_design/physical.pdf) describe the reservoir and
+basin arrangement, tubing, and estimated water flow trajectory.
+
+## Configuration
+
+The pin assignments (`RADAR_PIN`, `SOLENOID_PIN`) and minimum on-time
+(`DEBOUNCE_INTERVAL_MS`, currently `5000`) are defined in `src/main.cpp`.
+Serial speed is set in both `Serial.begin()` and `platformio.ini`; keep these
+values matched when changing it.
 
 ## Development
 
@@ -20,16 +66,17 @@ for command-line development. Run these commands from the project directory
 ```sh
 pio run                     # Build firmware
 pio run --target upload     # Upload to a connected board
-pio device monitor          # Open serial monitor at 115200 baud
+pio device monitor          # Open serial monitor at 57600 baud
 ```
 
 PlatformIO downloads the AVR toolchain and Arduino framework on the first build.
 If port detection fails, pass `--upload-port /dev/ttyACM0` when uploading or
 `--port /dev/ttyACM0` when opening the monitor, using your board's actual port.
 
-The starter firmware in `src/main.cpp` prints `Freshwater Kitty ready` at startup
-and toggles the built-in LED every 500 ms without blocking the main loop.
-Kitty detection and water control are still to be implemented.
+After uploading, open the serial monitor and reset the board to see the startup
+message. Trigger the radar sensor and check that the valve and LED turn on
+immediately. Clear the detection area and check that they turn off once the
+minimum on-time has elapsed. The serial messages report each valve state change.
 
 Project headers belong in `include/`, private libraries in `lib/`, and future
-unit tests in `test/`.
+unit tests in `test/`. No automated tests are included yet.
