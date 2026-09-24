@@ -4,7 +4,9 @@ namespace {
 
 constexpr uint8_t RADAR_PIN = 2;
 constexpr uint8_t SOLENOID_PIN = 7;
-constexpr unsigned long DEBOUNCE_INTERVAL_MS = 5000;
+constexpr unsigned long DEBOUNCE_OFF_INTERVAL_MS = 5000;
+constexpr unsigned long DEBOUNCE_ON_INTERVAL_MS = 2500;
+constexpr unsigned long MAX_FLOW_TIME_MS = 10000;
 unsigned long lastEdgeAt = 0;
 uint8_t lastEdgeRadarValue = LOW;
 }
@@ -34,13 +36,20 @@ void loop() {
     // delays when the cat walks in front of the radar sensor.
 
     if (radarValue == HIGH && lastEdgeRadarValue == LOW) {
-        Serial.println(F("Kitty detected!"));
-        syncHardwareToState(radarValue, now);
+        if (now - lastEdgeAt > DEBOUNCE_ON_INTERVAL_MS) {
+            Serial.println(F("Kitty detected!"));
+            syncHardwareToState(radarValue, now);
+        }
     }
     else if (radarValue == LOW && lastEdgeRadarValue == HIGH) {
-        if (now - lastEdgeAt > DEBOUNCE_INTERVAL_MS) {
+        if (now - lastEdgeAt > DEBOUNCE_OFF_INTERVAL_MS) {
             Serial.println(F("Kitty gone!"));
             syncHardwareToState(radarValue, now);
+        }
+    } else if (radarValue == HIGH && lastEdgeRadarValue == HIGH) {
+        if (now - lastEdgeAt > MAX_FLOW_TIME_MS) {
+            Serial.println(F("Kitty has been detected for too long!"));
+            syncHardwareToState(LOW, now);
         }
     }
 }
