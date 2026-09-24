@@ -5,7 +5,7 @@ namespace {
 constexpr uint8_t RADAR_PIN = 2;
 constexpr uint8_t SOLENOID_PIN = 7;
 constexpr unsigned long DEBOUNCE_OFF_INTERVAL_MS = 5000;
-constexpr unsigned long DEBOUNCE_ON_INTERVAL_MS = 2500;
+constexpr unsigned long DEBOUNCE_ON_INTERVAL_MS = 5000;
 constexpr unsigned long MAX_FLOW_TIME_MS = 10000;
 unsigned long lastEdgeAt = 0;
 uint8_t lastEdgeRadarValue = LOW;
