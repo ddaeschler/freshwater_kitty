@@ -19,10 +19,10 @@ presence output and controls the valve and built-in LED together:
 
 The timing uses `millis()` without blocking the main loop. The five-second interval
 is measured from valve activation, not from the last detection or the start of a
-LOW reading. Continuous presence keeps the valve open; there is no maximum run timer.
+LOW reading. Continuous presence keeps the valve open for a maximum of 10 seconds 
+before a forced cooldown period.
 
-Serial output at **57600 baud** reports `Freshwater Kitty ready` at startup,
-`Kitty detected!` when the valve opens, and `Kitty gone!` when it closes.
+Serial output at **57600 baud** reports state machine changes.
 
 ## Hardware
 
@@ -46,8 +46,7 @@ basin arrangement, tubing, and estimated water flow trajectory.
 
 ## Configuration
 
-The pin assignments (`RADAR_PIN`, `SOLENOID_PIN`) and minimum on-time
-(`DEBOUNCE_INTERVAL_MS`, currently `5000`) are defined in `src/main.cpp`.
+The pin assignments (`RADAR_PIN`, `SOLENOID_PIN`) are defined in `include/hardware.h`.
 Serial speed is set in both `Serial.begin()` and `platformio.ini`; keep these
 values matched when changing it.
 
