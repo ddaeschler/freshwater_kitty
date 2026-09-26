@@ -8,21 +8,29 @@ Dedicated to Mkit for all her love and support
 
 ## How it works
 
-The firmware in [`src/main.cpp`](src/main.cpp) reads the radar sensor's digital
-presence output and controls the valve and built-in LED together:
+The main loop in [`src/main.cpp`](src/main.cpp) passes the radar sensor's digital
+presence reading and `millis()` to the [state machine](src/state_machine.cpp).
+Each state controls the valve and built-in LED together, using nonblocking timers:
 
-- At startup, the valve and LED are off.
-- When the radar output goes HIGH, the valve opens and the LED turns on immediately.
-- The valve stays on while the radar reports presence, with a minimum on-time of
-  five seconds. Once more than five seconds have elapsed since activation, a LOW
-  radar reading closes the valve and turns off the LED.
+| State | Valve and LED | Transition |
+| --- | --- | --- |
+| `Idle` | Off | A HIGH radar reading starts `DebounceOnWait`. |
+| `DebounceOnWait` | Off | After five seconds, a HIGH reading starts `Dispensing`; a LOW reading returns to `Idle`. |
+| `Dispensing` | On | A LOW reading ends dispensing after at least five seconds. At ten seconds, dispensing ends regardless of the radar reading. Both paths return to `Idle`. |
 
-The timing uses `millis()` without blocking the main loop. The five-second interval
-is measured from valve activation, not from the last detection or the start of a
-LOW reading. Continuous presence keeps the valve open for a maximum of 10 seconds 
-before a forced cooldown period.
+At startup, the system is idle with the valve and LED off. The initial five-second
+wait checks presence when the interval expires; LOW readings during the wait
+neither cancel nor restart its timer. Dispensing timers start when the valve opens.
 
-Serial output at **57600 baud** reports state machine changes.
+An `OffWait` state is also implemented to hold the valve off for five seconds
+before returning to `Idle`, but is currently unused. There is no
+separate forced cooldown after dispensing. With continuous HIGH input, the system
+dispenses for ten seconds, returns to `Idle`, and goes through the five-second
+detection wait again before reopening the valve.
+
+Serial output at **57600 baud** prints `Freshwater Kitty ready` at startup and
+reports state entries, detection confirmation or rejection, and the reason
+dispensing ended.
 
 ## Hardware
 
@@ -46,14 +54,23 @@ basin arrangement, tubing, and estimated water flow trajectory.
 
 ## Configuration
 
-The pin assignments (`RADAR_PIN`, `SOLENOID_PIN`) are defined in `include/hardware.h`.
+The pin assignments (`RADAR_PIN`, `SOLENOID_PIN`) are defined in
+[`include/hardware.h`](include/hardware.h). Timing constants are in the state headers:
+
+| Constant | Default | Header |
+| --- | --- | --- |
+| `DEBOUNCE_ON_WAIT_INTERVAL_MS` | 5000 ms | [debounce_on_wait_state.h](include/debounce_on_wait_state.h) |
+| `MINIMUM_DISPENSING_TIME_MS` | 5000 ms | [dispensing_state.h](include/dispensing_state.h) |
+| `MAXIMUM_DISPENSING_TIME_MS` | 10000 ms | [dispensing_state.h](include/dispensing_state.h) |
+| `OFF_WAIT_INTERVAL_MS` | 5000 ms (currently unused state) | [off_wait_state.h](include/off_wait_state.h) |
+
 Serial speed is set in both `Serial.begin()` and `platformio.ini`; keep these
 values matched when changing it.
 
 ## Development
 
-The default target is an Arduino Uno (ATmega328P), using the Arduino framework
-and PlatformIO's `atmelavr` platform. If your board is a different ATmega model,
+The default target is an Arduino Uno (ATmega328P), using the Arduino framework,
+PlatformIO's `atmelavr` platform, and GNU C++17. If your board is a different ATmega model,
 change the `board` setting in `platformio.ini` to its
 [PlatformIO board ID](https://docs.platformio.org/en/latest/platforms/atmelavr.html#boards).
 
@@ -73,9 +90,18 @@ If port detection fails, pass `--upload-port /dev/ttyACM0` when uploading or
 `--port /dev/ttyACM0` when opening the monitor, using your board's actual port.
 
 After uploading, open the serial monitor and reset the board to see the startup
-message. Trigger the radar sensor and check that the valve and LED turn on
-immediately. Clear the detection area and check that they turn off once the
-minimum on-time has elapsed. The serial messages report each valve state change.
+message. Check the following behavior against the radar's digital output:
+
+1. Trigger detection. The valve and LED stay off for five seconds, then turn on
+   if the radar is still HIGH when the wait expires.
+2. Try a brief detection with the radar LOW when the wait expires. The system
+   returns to idle without opening the valve.
+3. During dispensing, clear detection before five seconds have elapsed. The
+   valve stays on until the minimum dispensing time, then closes if the radar is LOW.
+4. Keep detection HIGH. The valve closes after ten seconds and remains off during
+   the next five-second detection wait before dispensing again.
+
+The serial messages report the state transitions and dispensing stop conditions.
 
 Project headers belong in `include/`, private libraries in `lib/`, and future
 unit tests in `test/`. No automated tests are included yet.
